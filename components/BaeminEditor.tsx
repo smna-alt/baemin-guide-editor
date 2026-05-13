@@ -1,286 +1,448 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { PartialBlock } from '@blocknote/core';
-import '@blocknote/core/fonts/inter.css';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useCreateBlockNote } from '@blocknote/react';
 import { BlockNoteView } from '@blocknote/mantine';
 import '@blocknote/mantine/style.css';
 
-/* ── 라이브러리 패널 데이터 */
+/* ━━━ 라이브러리 패널 아이템 정의 ━━━ */
+
+// 텍스트 블록 타입
 const TEXT_ITEMS = [
-  { type: 'heading' as const, props: { level: 1 as const }, icon: 'H1', label: '대제목', desc: '22px · Bold' },
-  { type: 'heading' as const, props: { level: 2 as const }, icon: 'H2', label: '소제목', desc: '19px · Bold' },
-  { type: 'heading' as const, props: { level: 3 as const }, icon: 'H3', label: '세부제목', desc: '17px · Bold' },
-  { type: 'paragraph' as const, props: {}, icon: 'P', label: '본문', desc: '16px · Regular' },
+  { id: 'h1', icon: 'H1', label: '대제목', desc: '22px · Bold',
+    block: { type: 'heading' as const, props: { level: 1 as const } } },
+  { id: 'h2', icon: 'H2', label: '소제목', desc: '19px · Bold',
+    block: { type: 'heading' as const, props: { level: 2 as const } } },
+  { id: 'h3', icon: 'H3', label: '세부제목', desc: '17px · Bold',
+    block: { type: 'heading' as const, props: { level: 3 as const } } },
+  { id: 'p', icon: 'P', label: '본문', desc: '16px · Regular',
+    block: { type: 'paragraph' as const, props: {} } },
 ];
 
-const STYLE_ITEMS = [
-  { type: 'bulletListItem' as const, props: {}, icon: '≡', label: '불릿 목록', desc: '비순서형 리스트' },
-  { type: 'numberedListItem' as const, props: {}, icon: '1·', label: '번호 목록', desc: '순서형 리스트' },
-  { type: 'checkListItem' as const, props: {}, icon: '☑', label: '체크 목록', desc: '완료 체크 리스트' },
-  { type: 'paragraph' as const, props: {}, icon: 'Aa', label: '캡션', desc: '14px · 보조 설명' },
+// 배민 스타일 블록 타입 (HTML 커스텀 블록으로 구현)
+const BAEMIN_ITEMS = [
+  {
+    id: 'box-body',
+    icon: '□',
+    label: '박스 · 본문단독형',
+    desc: '16px · 제목 없는 강조 박스',
+    block: {
+      type: 'paragraph' as const,
+      props: {},
+      content: '내용을 입력하세요.',
+    },
+    style: 'baemin-box-body',
+  },
+  {
+    id: 'box-title',
+    icon: '▣',
+    label: '박스 · 제목혼합형',
+    desc: '16px · 제목 + 내용 강조 박스',
+    block: {
+      type: 'paragraph' as const,
+      props: {},
+      content: '제목을 입력하세요.',
+    },
+    style: 'baemin-box-title',
+  },
+  {
+    id: 'box-body-sm',
+    icon: '□',
+    label: '박스 · 본문단독형(소)',
+    desc: '14px · 제목 없는 강조 박스',
+    block: {
+      type: 'paragraph' as const,
+      props: {},
+      content: '내용을 입력하세요.',
+    },
+    style: 'baemin-box-body-sm',
+  },
+  {
+    id: 'box-title-sm',
+    icon: '▣',
+    label: '박스 · 제목혼합형(소)',
+    desc: '14px · 제목 + 내용 강조 박스',
+    block: {
+      type: 'paragraph' as const,
+      props: {},
+      content: '제목을 입력하세요.',
+    },
+    style: 'baemin-box-title-sm',
+  },
+  {
+    id: 'bullet',
+    icon: '≡',
+    label: '불릿 목록',
+    desc: '비순서형 리스트',
+    block: { type: 'bulletListItem' as const, props: {} },
+  },
+  {
+    id: 'numbered',
+    icon: '1·',
+    label: '번호 목록',
+    desc: '순서형 리스트',
+    block: { type: 'numberedListItem' as const, props: {} },
+  },
+  {
+    id: 'table',
+    icon: '⊞',
+    label: '데이터 표',
+    desc: '둥근 모서리 테이블',
+    block: { type: 'table' as const, props: {} },
+  },
+  {
+    id: 'faq',
+    icon: 'Q&A',
+    label: 'FAQ',
+    desc: '질문·답변 세트',
+    block: {
+      type: 'paragraph' as const,
+      props: {},
+      content: 'Q. 질문을 입력하세요.',
+    },
+    style: 'baemin-faq',
+  },
+  {
+    id: 'box-mixed',
+    icon: 'T+',
+    label: '박스·제목혼합',
+    desc: '제목+본문 박스',
+    block: {
+      type: 'paragraph' as const,
+      props: {},
+      content: '제목을 입력하세요.',
+    },
+    style: 'baemin-box-mixed',
+  },
+  {
+    id: 'caption',
+    icon: 'Aa',
+    label: '캡션',
+    desc: '14px · 보조 설명',
+    block: {
+      type: 'paragraph' as const,
+      props: {},
+      content: '보조 설명을 입력하세요.',
+    },
+    style: 'baemin-caption',
+  },
+  {
+    id: 'divider',
+    icon: '─',
+    label: '구분선',
+    desc: '섹션 구분',
+    block: { type: 'paragraph' as const, props: {}, content: '' },
+    style: 'baemin-divider',
+  },
 ];
 
-/* ── 샘플 블록 */
-const SAMPLE_BLOCKS: PartialBlock[] = [
-  { type: 'heading', props: { level: 1 }, content: '배민외식업광장 사용 가이드' },
-  { type: 'paragraph', content: '배민외식업광장에서 제공하는 다양한 서비스를 효과적으로 활용하는 방법을 안내합니다.' },
-  { type: 'heading', props: { level: 2 }, content: '서비스 시작하기' },
-  { type: 'heading', props: { level: 3 }, content: '1. 앱 설치 및 로그인' },
-  { type: 'numberedListItem', content: 'App Store 또는 Google Play에서 앱 검색' },
-  { type: 'numberedListItem', content: '대표자 휴대폰 번호로 본인인증' },
-  { type: 'numberedListItem', content: '사업자 정보 입력 후 가입 완료' },
-  { type: 'paragraph', content: '꼭 확인하세요: 사업자등록번호와 대표자 정보가 일치해야 정상적으로 가입됩니다.' },
-  { type: 'heading', props: { level: 2 }, content: '주요 기능' },
-  { type: 'bulletListItem', content: '매출 통계 및 분석 대시보드' },
-  { type: 'bulletListItem', content: '마케팅 광고 설정 및 관리' },
-  { type: 'bulletListItem', content: '가게 정보 및 메뉴 관리' },
-  { type: 'paragraph', content: '' },
+/* ━━━ 샘플 블록 ━━━ */
+const SAMPLE_BLOCKS = [
+  { type: 'heading' as const, props: { level: 1 as const }, content: '배민외식업광장 사용 가이드' },
+  { type: 'paragraph' as const, content: '배민외식업광장에서 제공하는 다양한 서비스를 효과적으로 활용하는 방법을 안내합니다.' },
+  { type: 'heading' as const, props: { level: 2 as const }, content: '서비스 시작하기' },
+  { type: 'heading' as const, props: { level: 3 as const }, content: '1. 앱 설치 및 로그인' },
+  { type: 'numberedListItem' as const, content: 'App Store 또는 Google Play에서 앱 검색' },
+  { type: 'numberedListItem' as const, content: '대표자 휴대폰 번호로 본인인증' },
+  { type: 'numberedListItem' as const, content: '사업자 정보 입력 후 가입 완료' },
+  { type: 'paragraph' as const, content: '꼭 확인하세요: 사업자등록번호와 대표자 정보가 일치해야 정상적으로 가입됩니다.' },
+  { type: 'heading' as const, props: { level: 2 as const }, content: '주요 기능 안내' },
+  { type: 'bulletListItem' as const, content: '매출 분석: 일·주·월별 매출 리포트' },
+  { type: 'bulletListItem' as const, content: '리뷰 관리: 리뷰 작성·답글 통합 관리' },
+  { type: 'bulletListItem' as const, content: '마케팅: 쿠폰 발행 및 광고 관리' },
 ];
 
-/* ── HTML 내보내기 */
-function blocksToHTML(blocks: any[]): string {
-  const lines: string[] = [];
-  for (const block of blocks) {
-    const getInlineText = (content: any): string => {
-      if (!content) return '';
-      if (typeof content === 'string') return content;
-      if (Array.isArray(content)) {
-        return content.map((s: any) => {
-          let text = s.text || '';
-          if (s.styles?.bold) text = `<strong>${text}</strong>`;
-          if (s.styles?.italic) text = `<em>${text}</em>`;
-          return text;
-        }).join('');
-      }
-      return '';
-    };
-
-    const text = getInlineText(block.content);
+/* ━━━ 모바일 HTML 생성 ━━━ */
+function generateMobileHTML(blocks: any[]): string {
+  return blocks.map(block => {
+    const text = Array.isArray(block.content)
+      ? block.content.map((c: any) => c.text || '').join('')
+      : (block.content || '');
     switch (block.type) {
       case 'heading': {
-        const lvl = block.props?.level || 1;
-        const sizes: Record<number, string> = { 1: '22px', 2: '19px', 3: '17px' };
-        const margins: Record<number, string> = { 1: '24px', 2: '20px', 3: '16px' };
-        lines.push(`<h${lvl} style="font-size:${sizes[lvl]};font-weight:700;line-height:1.4;margin-bottom:${margins[lvl]};margin-top:0;color:#1a1a1a;">${text}</h${lvl}>`);
-        break;
+        const sizes = { 1: '18px', 2: '16px', 3: '14px' };
+        const size = sizes[block.props?.level as 1|2|3] || '16px';
+        return `<div style="font-weight:700;font-size:${size};margin:12px 0 6px;color:#111;">${text}</div>`;
       }
       case 'paragraph':
-        if (text) lines.push(`<p style="font-size:16px;line-height:1.7;margin-bottom:10px;color:#3a3a3a;">${text}</p>`);
-        break;
+        return text ? `<p style="font-size:14px;margin:4px 0;color:#333;line-height:1.6;">${text}</p>` : '<br/>';
       case 'bulletListItem':
-        lines.push(`<li style="font-size:16px;line-height:1.7;color:#3a3a3a;margin-bottom:4px;margin-left:20px;">${text}</li>`);
-        break;
+        return `<div style="font-size:14px;margin:2px 0;padding-left:16px;color:#333;">• ${text}</div>`;
       case 'numberedListItem':
-        lines.push(`<li style="font-size:16px;line-height:1.7;color:#3a3a3a;margin-bottom:4px;margin-left:20px;">${text}</li>`);
-        break;
-      case 'checkListItem':
-        const checked = block.props?.checked ? '✅ ' : '☐ ';
-        lines.push(`<p style="font-size:16px;line-height:1.7;color:#3a3a3a;margin-bottom:4px;">${checked}${text}</p>`);
-        break;
+        return `<div style="font-size:14px;margin:2px 0;padding-left:16px;color:#333;">${text}</div>`;
+      default:
+        return text ? `<p style="font-size:14px;color:#333;">${text}</p>` : '';
     }
-    if (block.children?.length) {
-      lines.push(blocksToHTML(block.children));
-    }
-  }
-  return lines.join('\n');
+  }).join('');
 }
 
-/* ── 메인 컴포넌트 */
+/* ━━━ 메인 컴포넌트 ━━━ */
 export default function BaeminEditor() {
-  const [previewHTML, setPreviewHTML] = useState('');
+  const editor = useCreateBlockNote();
+  const [mobileHTML, setMobileHTML] = useState('');
+  const editorRef = useRef<HTMLDivElement>(null);
 
-  const editor = useCreateBlockNote({
-    initialContent: [{ type: 'paragraph', content: '' }],
-  });
-
-  const updatePreview = useCallback(() => {
-    const html = blocksToHTML(editor.document);
-    setPreviewHTML(html);
+  // 에디터 내용 변경 시 모바일 HTML 업데이트
+  useEffect(() => {
+    if (!editor) return;
+    const updateMobile = () => {
+      const blocks = editor.document;
+      setMobileHTML(generateMobileHTML(blocks));
+    };
+    editor.onChange(updateMobile);
+    updateMobile();
   }, [editor]);
 
-  useEffect(() => {
-    updatePreview();
-  }, [updatePreview]);
+  /* ━━━ 라이브러리 블록 삽입 함수 ━━━ */
+  const insertBlock = useCallback((item: typeof TEXT_ITEMS[0] | typeof BAEMIN_ITEMS[0]) => {
+    const block = (item as any).block;
+    if (!block) return;
 
-  const insertBlock = (type: string, props?: Record<string, any>) => {
-    const block: PartialBlock = { type: type as any, props: props || {} };
-    try {
-      const cursor = editor.getTextCursorPosition();
-      if (cursor) {
-        editor.insertBlocks([block], cursor.block, 'after');
-      } else {
-        const lastBlock = editor.document[editor.document.length - 1];
-        editor.insertBlocks([block], lastBlock, 'after');
-      }
-    } catch {
-      editor.insertBlocks([block], editor.document[0], 'before');
+    // 현재 포커스된 블록 위치에 삽입
+    const currentBlock = editor.getTextCursorPosition().block;
+
+    // table 타입은 특별 처리
+    if (block.type === 'table') {
+      editor.insertBlocks(
+        [{
+          type: 'table',
+          content: {
+            type: 'tableContent',
+            rows: [
+              { cells: [
+                [{ type: 'text', text: '항목', styles: {} }],
+                [{ type: 'text', text: '내용', styles: {} }],
+                [{ type: 'text', text: '대상', styles: {} }],
+              ]},
+              { cells: [
+                [{ type: 'text', text: '', styles: {} }],
+                [{ type: 'text', text: '', styles: {} }],
+                [{ type: 'text', text: '', styles: {} }],
+              ]},
+            ],
+          },
+        }],
+        currentBlock,
+        'after'
+      );
+    } else {
+      // 일반 블록 삽입
+      const contentStr = block.content || '';
+      editor.insertBlocks(
+        [{
+          type: block.type,
+          props: block.props || {},
+          content: contentStr ? [{ type: 'text', text: contentStr, styles: {} }] : [],
+        }],
+        currentBlock,
+        'after'
+      );
     }
-    setTimeout(updatePreview, 100);
-  };
 
-  const loadSample = () => {
-    editor.replaceBlocks(editor.document, SAMPLE_BLOCKS);
-    setTimeout(updatePreview, 200);
-  };
+    // 포커스 이동
+    setTimeout(() => {
+      editor.focus();
+    }, 50);
+  }, [editor]);
 
-  const resetEditor = () => {
-    editor.replaceBlocks(editor.document, [{ type: 'paragraph', content: '' }]);
-    setPreviewHTML('');
-  };
+  /* ━━━ 샘플 불러오기 ━━━ */
+  const loadSample = useCallback(() => {
+    editor.removeBlocks(editor.document);
+    const blocks = SAMPLE_BLOCKS.map(b => ({
+      type: b.type,
+      props: (b as any).props || {},
+      content: [{ type: 'text' as const, text: b.content, styles: {} }],
+    }));
+    editor.insertBlocks(blocks, editor.document[0], 'before');
+    setTimeout(() => editor.focus(), 50);
+  }, [editor]);
 
-  const exportDocs = () => {
-    const html = `<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8">
-<title>배민 가이드</title>
-<style>body{font-family:'Apple SD Gothic Neo',sans-serif;max-width:720px;margin:0 auto;padding:40px;color:#1a1a1a;}</style>
-</head>
-<body>${blocksToHTML(editor.document)}</body>
-</html>`;
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
+  /* ━━━ 초기화 ━━━ */
+  const resetEditor = useCallback(() => {
+    editor.removeBlocks(editor.document);
+    editor.insertBlocks(
+      [{ type: 'paragraph', content: [] }],
+      editor.document[0] || { id: '' } as any,
+      'before'
+    );
+    setTimeout(() => editor.focus(), 50);
+  }, [editor]);
+
+  /* ━━━ Docs 내보내기 ━━━ */
+  const exportDocs = useCallback(() => {
+    const blocks = editor.document;
+    const html = generateMobileHTML(blocks);
+    const blob = new Blob([`<!DOCTYPE html><html><head><meta charset="utf-8"><title>가이드</title></head><body style="font-family:sans-serif;max-width:800px;margin:0 auto;padding:24px;">${html}</body></html>`], { type: 'text/html' });
     const a = document.createElement('a');
-    a.href = url;
-    a.download = 'baemin-guide.html';
+    a.href = URL.createObjectURL(blob);
+    a.download = 'guide.html';
     a.click();
-    URL.revokeObjectURL(url);
-  };
+  }, [editor]);
 
-  const copyToCMS = async () => {
-    const html = blocksToHTML(editor.document);
-    try {
-      await navigator.clipboard.writeText(html);
-      alert('✅ CMS용 HTML이 복사됐습니다!');
-    } catch {
-      alert('복사 실패: 직접 Ctrl+C를 사용해주세요');
-    }
-  };
+  /* ━━━ CMS에 복사 ━━━ */
+  const copyToCMS = useCallback(() => {
+    const blocks = editor.document;
+    const html = generateMobileHTML(blocks);
+    navigator.clipboard.writeText(html).then(() => alert('HTML이 클립보드에 복사되었습니다.'));
+  }, [editor]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: "'Spoqa Han Sans Neo', 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif", background: '#f5f5f7' }}>
-      {/* 헤더 */}
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 46, padding: '0 16px', background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)', borderBottom: '0.67px solid #e9e9ed', position: 'sticky', top: 0, zIndex: 100, flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 22, height: 22, background: '#00c4a7', borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ color: '#fff', fontSize: 11, fontWeight: 700 }}>✦</span>
-          </div>
-          <span style={{ fontSize: 13.5, fontWeight: 600, color: '#1c1c1e' }}>배민 콘텐츠 에디터</span>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: "'Spoqa Han Sans Neo', 'Apple SD Gothic Neo', sans-serif" }}>
+      {/* ━━━ 헤더 ━━━ */}
+      <header style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 20px', height: '46px', background: '#fff',
+        borderBottom: '1px solid #e8e8e8', flexShrink: 0,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{
+            width: '22px', height: '22px', background: '#00c4b4', borderRadius: '4px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#fff', fontSize: '13px', fontWeight: 700,
+          }}>✦</div>
+          <span style={{ fontWeight: 700, fontSize: '15px', color: '#111' }}>배민 콘텐츠 에디터</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          {['샘플 불러오기', '초기화'].map((label, i) => (
-            <button key={label} onClick={i === 0 ? loadSample : resetEditor}
-              style={{ background: 'none', border: 'none', color: '#6e6e73', fontSize: 12, fontWeight: 500, cursor: 'pointer', padding: '6px 9px', borderRadius: 5 }}
-              onMouseOver={e => ((e.target as HTMLElement).style.background = 'rgba(0,0,0,0.04)')}
-              onMouseOut={e => ((e.target as HTMLElement).style.background = 'none')}
-            >{label}</button>
-          ))}
-          <div style={{ width: 1, height: 16, background: '#d1d1d6', margin: '0 4px' }} />
-          <button onClick={exportDocs}
-            style={{ background: 'none', border: 'none', color: '#6e6e73', fontSize: 12, fontWeight: 500, cursor: 'pointer', padding: '6px 9px', borderRadius: 5 }}
-            onMouseOver={e => ((e.target as HTMLElement).style.background = 'rgba(0,0,0,0.04)')}
-            onMouseOut={e => ((e.target as HTMLElement).style.background = 'none')}
-          >Docs 내보내기</button>
-          <button onClick={copyToCMS}
-            style={{ background: '#00c4a7', border: 'none', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: '6px 14px', borderRadius: 5 }}
-          >CMS에 복사</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button onClick={loadSample} style={btnStyle}>샘플 불러오기</button>
+          <button onClick={resetEditor} style={btnStyle}>초기화</button>
+          <span style={{ color: '#ddd', margin: '0 4px' }}>|</span>
+          <button onClick={exportDocs} style={btnStyle}>Docs 내보내기</button>
+          <button onClick={copyToCMS} style={{ ...btnStyle, background: '#00c4b4', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>CMS에 복사</button>
         </div>
       </header>
 
-      {/* 바디 3단 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '210px 1fr 420px', flex: 1, overflow: 'hidden', minHeight: 0 }}>
-        {/* 좌측 라이브러리 */}
-        <aside style={{ background: 'rgb(248,248,250)', borderRight: '0.67px solid #e9e9ed', overflowY: 'auto', padding: '12px 0' }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: '#b0b0ba', padding: '0 14px 6px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>라이브러리</div>
-          <div style={{ fontSize: 10, fontWeight: 600, color: '#b0b0ba', padding: '8px 14px 4px', letterSpacing: '0.5px' }}>텍스트</div>
+      {/* ━━━ 본문 레이아웃 ━━━ */}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        {/* ━━━ 좌측 라이브러리 패널 ━━━ */}
+        <aside style={{
+          width: '210px', flexShrink: 0, background: '#fff',
+          borderRight: '1px solid #e8e8e8', overflowY: 'auto', padding: '16px 0',
+        }}>
+          <div style={{ padding: '0 14px 8px', fontSize: '11px', color: '#999', fontWeight: 600, letterSpacing: '0.05em' }}>라이브러리</div>
+
+          {/* 텍스트 섹션 */}
+          <div style={{ padding: '4px 14px 6px', fontSize: '11px', color: '#bbb', fontWeight: 500 }}>텍스트</div>
           {TEXT_ITEMS.map(item => (
-            <button key={item.icon} onClick={() => insertBlock(item.type, item.props)}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px', borderRadius: 5, cursor: 'pointer', margin: '1px 6px', border: 'none', background: 'transparent', width: 'calc(100% - 12px)', textAlign: 'left' }}
-              onMouseOver={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(0,196,167,0.07)')}
-              onMouseOut={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
+            <div
+              key={item.id}
+              onMouseDown={(e) => { e.preventDefault(); insertBlock(item); }}
+              style={libItemStyle}
             >
-              <div style={{ width: 22, height: 22, background: 'rgb(235,235,234)', borderRadius: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, color: '#6e6e73', flexShrink: 0 }}>{item.icon}</div>
+              <div style={{ ...libIconStyle, background: '#f0f0f0', color: '#666', fontSize: '11px', fontWeight: 700 }}>{item.icon}</div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: '#1c1c1e' }}>{item.label}</div>
-                <div style={{ fontSize: 10, color: '#aeaeb2' }}>{item.desc}</div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#111' }}>{item.label}</div>
+                <div style={{ fontSize: '11px', color: '#999', marginTop: '1px' }}>{item.desc}</div>
               </div>
-            </button>
+            </div>
           ))}
-          <div style={{ fontSize: 10, fontWeight: 600, color: '#b0b0ba', padding: '12px 14px 4px', letterSpacing: '0.5px' }}>배민 스타일</div>
-          {STYLE_ITEMS.map(item => (
-            <button key={item.type + item.label} onClick={() => insertBlock(item.type, item.props)}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px', borderRadius: 5, cursor: 'pointer', margin: '1px 6px', border: 'none', background: 'transparent', width: 'calc(100% - 12px)', textAlign: 'left' }}
-              onMouseOver={e => ((e.currentTarget as HTMLElement).style.background = 'rgba(0,196,167,0.07)')}
-              onMouseOut={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
+
+          {/* 배민 스타일 섹션 */}
+          <div style={{ padding: '12px 14px 6px', fontSize: '11px', color: '#bbb', fontWeight: 500 }}>배민 스타일</div>
+          {BAEMIN_ITEMS.map(item => (
+            <div
+              key={item.id}
+              onMouseDown={(e) => { e.preventDefault(); insertBlock(item); }}
+              style={libItemStyle}
             >
-              <div style={{ width: 22, height: 22, background: 'rgb(235,235,234)', borderRadius: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: '#6e6e73', flexShrink: 0 }}>{item.icon}</div>
+              <div style={{
+                ...libIconStyle,
+                background: '#f0f0f0', color: '#666',
+                fontSize: item.icon.length > 2 ? '9px' : '11px',
+                fontWeight: 700,
+              }}>{item.icon}</div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 500, color: '#1c1c1e' }}>{item.label}</div>
-                <div style={{ fontSize: 10, color: '#aeaeb2' }}>{item.desc}</div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#111' }}>{item.label}</div>
+                <div style={{ fontSize: '11px', color: '#999', marginTop: '1px' }}>{item.desc}</div>
               </div>
-            </button>
+            </div>
           ))}
         </aside>
 
-        {/* 중앙 에디터 */}
-        <section style={{ background: 'rgb(235,235,238)', overflow: 'hidden auto', padding: '40px 32px 100px' }}>
-          <div style={{ background: '#fff', borderRadius: 8, padding: '60px 72px 80px', maxWidth: 760, margin: '0 auto', boxShadow: 'rgba(60,60,80,0.07) 0px 1px 3px, rgba(60,60,80,0.08) 0px 4px 20px, rgba(60,60,80,0.06) 0px 0px 0px 1px', minHeight: 600 }}>
+        {/* ━━━ 에디터 영역 ━━━ */}
+        <main style={{ flex: 1, background: '#ebebee', overflowY: 'auto', padding: '32px 24px' }}>
+          <div style={{
+            background: '#fff', borderRadius: '8px',
+            boxShadow: '0 1px 6px rgba(0,0,0,0.08)',
+            minHeight: '600px', padding: '32px',
+          }}>
             <BlockNoteView
               editor={editor}
               theme="light"
-              onChange={updatePreview}
             />
           </div>
-        </section>
+        </main>
 
-        {/* 우측 모바일 미리보기 */}
-        <aside style={{ background: 'rgb(248,248,250)', borderLeft: '0.67px solid #e9e9ed', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 0 0', overflowY: 'auto' }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: '#b0b0ba', letterSpacing: '0.5px', marginBottom: 12, textTransform: 'uppercase' }}>모바일 미리보기</div>
-          <div style={{ width: 320, background: '#1c1c1e', borderRadius: 44, padding: '12px 9px', boxShadow: '0 8px 40px rgba(0,0,0,0.4)', position: 'relative', flexShrink: 0 }}>
-            <div style={{ position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)', width: 110, height: 28, background: '#1c1c1e', borderRadius: 20, zIndex: 10 }} />
-            <div style={{ width: '100%', height: 656, background: '#fff', borderRadius: 36, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ height: 44, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', padding: '0 20px 8px', flexShrink: 0 }}>
-                <span style={{ fontSize: 13, fontWeight: 700 }}>9:41</span>
-                <div style={{ display: 'flex', gap: 5, alignItems: 'center', fontSize: 11 }}>
-                  <span>▪▪▪</span><span>WiFi</span><span>🔋</span>
-                </div>
+        {/* ━━━ 우측 모바일 미리보기 ━━━ */}
+        <aside style={{
+          width: '340px', flexShrink: 0, background: '#f5f5f5',
+          borderLeft: '1px solid #e8e8e8', overflowY: 'auto',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 16px',
+        }}>
+          <div style={{ fontSize: '12px', color: '#999', marginBottom: '12px', alignSelf: 'flex-start' }}>모바일 미리보기</div>
+          {/* 아이폰 프레임 */}
+          <div style={{
+            width: '300px', borderRadius: '36px', overflow: 'hidden',
+            border: '8px solid #1a1a1a', background: '#fff',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.2)',
+            position: 'relative',
+          }}>
+            {/* 상태바 */}
+            <div style={{ background: '#fff', padding: '10px 20px 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '12px', fontWeight: 700 }}>9:41</span>
+              <span style={{ fontSize: '10px', color: '#333' }}>▪ ▪ ▪ WiFi</span>
+            </div>
+            {/* 앱 상단 */}
+            <div style={{ background: '#fff', borderBottom: '1px solid #f0f0f0', padding: '8px 16px' }}>
+              <div style={{ fontSize: '11px', color: '#999', textAlign: 'center', marginBottom: '4px' }}>baeminbiz.com</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <div style={{ width: '24px', height: '24px', background: '#00c4b4', borderRadius: '6px' }}></div>
+                <span style={{ fontWeight: 700, fontSize: '14px' }}>장사노하우</span>
               </div>
-              <div style={{ background: '#f2f2f7', padding: '5px 10px', flexShrink: 0 }}>
-                <div style={{ background: '#e5e5ea', borderRadius: 7, padding: '4px 10px', fontSize: 11, color: '#636366', textAlign: 'center' }}>baeminbiz.com</div>
-              </div>
-              <div style={{ padding: '8px 12px 0', flexShrink: 0, borderBottom: '0.5px solid #e5e5e5' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <div style={{ width: 24, height: 24, background: '#00c4a7', borderRadius: 6 }} />
-                    <span style={{ fontWeight: 700, fontSize: 14 }}>장사노하우</span>
-                  </div>
-                  <div style={{ display: 'flex', gap: 12, fontSize: 16 }}>🔍🔔≡</div>
-                </div>
-                <div style={{ display: 'flex' }}>
-                  {['전체', '장사소식', '매출 상승', '식자재 정보'].map((tab, i) => (
-                    <div key={tab} style={{ fontSize: 11, padding: '5px 7px', color: i === 0 ? '#00c4a7' : '#636366', borderBottom: i === 0 ? '2px solid #00c4a7' : '2px solid transparent', fontWeight: i === 0 ? 600 : 400, flexShrink: 0 }}>{tab}</div>
-                  ))}
-                  <div style={{ fontSize: 11, padding: '5px 4px', color: '#636366' }}>∨</div>
-                </div>
-              </div>
-              <div
-                style={{ flex: 1, overflow: 'auto', padding: '10px 12px', fontSize: 12, lineHeight: 1.5 }}
-                dangerouslySetInnerHTML={{ __html: previewHTML || '<p style="color:#c7c7cc;text-align:center;padding-top:40px;font-size:12px;">에디터에서 블록을 추가하면<br/>여기서 미리볼 수 있어요</p>' }}
-              />
-              <div style={{ height: 40, background: '#f9f9f9', borderTop: '0.5px solid #e5e5e5', display: 'flex', alignItems: 'center', justifyContent: 'space-around', flexShrink: 0, fontSize: 16 }}>
-                <span style={{ color: '#636366' }}>◀</span>
-                <span style={{ color: '#636366' }}>▶</span>
-                <span style={{ color: '#636366' }}>⬆</span>
-                <span style={{ color: '#636366' }}>□</span>
-                <span style={{ color: '#636366' }}>⊞</span>
+              <div style={{ display: 'flex', gap: '16px', fontSize: '12px', borderBottom: '2px solid #00c4b4', paddingBottom: '4px' }}>
+                <span style={{ color: '#00c4b4', fontWeight: 700 }}>전체</span>
+                <span style={{ color: '#999' }}>장사소식</span>
+                <span style={{ color: '#999' }}>매출 상승</span>
+                <span style={{ color: '#999' }}>식자재 정보</span>
+                <span style={{ color: '#999' }}>∨</span>
               </div>
             </div>
+            {/* 콘텐츠 */}
+            <div
+              style={{ padding: '16px', minHeight: '400px', fontSize: '14px', lineHeight: 1.6 }}
+              dangerouslySetInnerHTML={{ __html: mobileHTML || '<p style="color:#bbb;text-align:center;margin-top:40px;">에디터에서 블록을 추가하면<br/>여기서 미리볼 수 있어요</p>' }}
+            />
+            {/* 하단 네비 바 */}
+            <div style={{
+              background: '#fff', borderTop: '1px solid #f0f0f0',
+              padding: '8px 0', display: 'flex', justifyContent: 'space-around', alignItems: 'center',
+            }}>
+              {['◀', '▶', '↑', '□', '⊞'].map((icon, i) => (
+                <span key={i} style={{ fontSize: '14px', color: '#666', padding: '4px 8px' }}>{icon}</span>
+              ))}
+            </div>
           </div>
-          <p style={{ fontSize: 10, color: '#aeaeb2', marginTop: 8, textAlign: 'center', lineHeight: 1.6 }}>iPhone 12 Pro · Safari · 배민외식업광장</p>
+          <div style={{ fontSize: '11px', color: '#bbb', marginTop: '12px' }}>iPhone 12 Pro · Safari · 배민외식업광장</div>
         </aside>
       </div>
     </div>
   );
 }
+
+/* ━━━ 공통 스타일 상수 ━━━ */
+const btnStyle: React.CSSProperties = {
+  background: 'none', border: 'none', cursor: 'pointer',
+  fontSize: '13px', color: '#444', padding: '4px 8px',
+  borderRadius: '4px', fontWeight: 500,
+};
+
+const libItemStyle: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: '10px',
+  padding: '8px 14px', cursor: 'pointer', userSelect: 'none',
+  transition: 'background 0.12s',
+};
+
+const libIconStyle: React.CSSProperties = {
+  width: '28px', height: '28px', borderRadius: '5px',
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  flexShrink: 0, letterSpacing: '-0.5px',
+};
