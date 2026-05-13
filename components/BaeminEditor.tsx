@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { BlockNoteEditor, PartialBlock } from '@blocknote/core';
+import { PartialBlock } from '@blocknote/core';
 import '@blocknote/core/fonts/inter.css';
-import { BlockNoteView, useCreateBlockNote } from '@blocknote/react';
+import { useCreateBlockNote } from '@blocknote/react';
+import { BlockNoteView } from '@blocknote/mantine';
 import '@blocknote/mantine/style.css';
 
 /* ── 라이브러리 패널 데이터 */
@@ -101,7 +102,7 @@ export default function BaeminEditor() {
 
   useEffect(() => {
     updatePreview();
-  }, []);
+  }, [updatePreview]);
 
   const insertBlock = (type: string, props?: Record<string, any>) => {
     const block: PartialBlock = { type: type as any, props: props || {} };
