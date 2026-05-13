@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { useCreateBlockNote, defaultBlockSpecs } from '@blocknote/react';
+import { useEffect, useState, useCallback } from 'react';
+import { useCreateBlockNote } from '@blocknote/react';
 import { BlockNoteView } from '@blocknote/mantine';
 import '@blocknote/mantine/style.css';
 
@@ -52,7 +52,7 @@ const SAMPLE_BLOCKS = [
   { type: 'numberedListItem' as const, props: {}, content: [{ type: 'text' as const, text: 'App Store 또는 Google Play에서 앱 검색', styles: {} }] },
   { type: 'numberedListItem' as const, props: {}, content: [{ type: 'text' as const, text: '대표자 휴대폰 번호로 본인인증', styles: {} }] },
   { type: 'numberedListItem' as const, props: {}, content: [{ type: 'text' as const, text: '사업자 정보 입력 후 가입 완료', styles: {} }] },
-  { type: 'paragraph' as const, props: { textColor: 'default', backgroundColor: 'yellow' }, content: [{ type: 'text' as const, text: '📌 꼭 확인하세요', styles: { bold: true } }, { type: 'text' as const, text: '\n사업자등록번호와 대표자 정보가 일치해야 정상적으로 가입됩니다.', styles: {} }] },
+  { type: 'paragraph' as const, props: { textColor: 'default', backgroundColor: 'yellow' }, content: [{ type: 'text' as const, text: '📌 꼭 확인하세요  사업자등록번호와 대표자 정보가 일치해야 정상적으로 가입됩니다.', styles: {} }] },
   { type: 'heading' as const, props: { level: 2 as const }, content: [{ type: 'text' as const, text: '주요 기능 안내', styles: {} }] },
   { type: 'bulletListItem' as const, props: {}, content: [{ type: 'text' as const, text: '매출 분석: 일·주·월별 매출 리포트', styles: {} }] },
   { type: 'bulletListItem' as const, props: {}, content: [{ type: 'text' as const, text: '리뷰 관리: 리뷰 작성·답글 통합 관리', styles: {} }] },
@@ -67,26 +67,26 @@ function generateMobileHTML(blocks: any[]): string {
       : '';
     const bg = block.props?.backgroundColor;
     const boxStyle = bg && bg !== 'default' && bg !== 'transparent'
-      ? `background:#f0f8ff;border-left:3px solid #00c4b4;padding:8px 12px;border-radius:4px;margin:6px 0;`
+      ? 'background:#f0f8ff;border-left:3px solid #00c4b4;padding:8px 12px;border-radius:4px;margin:6px 0;'
       : '';
     switch (block.type) {
       case 'heading': {
         const sizes: Record<number, string> = { 1: '20px', 2: '17px', 3: '15px' };
         const size = sizes[block.props?.level as number] || '17px';
-        if (boxStyle) return `<div style="${boxStyle}font-weight:700;font-size:${size};color:#111;">${text}</div>`;
-        return `<div style="font-weight:700;font-size:${size};margin:14px 0 6px;color:#111;">${text}</div>`;
+        if (boxStyle) return '<div style="' + boxStyle + 'font-weight:700;font-size:' + size + ';color:#111;">' + text + '</div>';
+        return '<div style="font-weight:700;font-size:' + size + ';margin:14px 0 6px;color:#111;">' + text + '</div>';
       }
       case 'paragraph':
         if (!text) return '<br/>';
-        if (boxStyle) return `<div style="${boxStyle}font-size:14px;color:#333;line-height:1.6;">${text}</div>`;
-        if (block.props?.textColor === 'gray') return `<p style="font-size:12px;color:#999;margin:2px 0;">${text}</p>`;
-        return `<p style="font-size:14px;margin:4px 0;color:#333;line-height:1.6;">${text}</p>`;
+        if (boxStyle) return '<div style="' + boxStyle + 'font-size:14px;color:#333;line-height:1.6;">' + text + '</div>';
+        if (block.props?.textColor === 'gray') return '<p style="font-size:12px;color:#999;margin:2px 0;">' + text + '</p>';
+        return '<p style="font-size:14px;margin:4px 0;color:#333;line-height:1.6;">' + text + '</p>';
       case 'bulletListItem':
-        return `<div style="font-size:14px;margin:2px 0;padding-left:16px;color:#333;">• ${text}</div>`;
+        return '<div style="font-size:14px;margin:2px 0;padding-left:16px;color:#333;">• ' + text + '</div>';
       case 'numberedListItem':
-        return `<div style="font-size:14px;margin:2px 0;padding-left:16px;color:#333;">${text}</div>`;
+        return '<div style="font-size:14px;margin:2px 0;padding-left:16px;color:#333;">' + text + '</div>';
       default:
-        return text ? `<p style="font-size:14px;color:#333;">${text}</p>` : '';
+        return text ? '<p style="font-size:14px;color:#333;">' + text + '</p>' : '';
     }
   }).join('');
 }
@@ -108,14 +108,11 @@ export default function BaeminEditor() {
     try {
       const cursorPos = editor.getTextCursorPosition();
       const currentBlock = cursorPos.block;
-      
-      // 현재 블록이 비어있는지 확인
       const currentContent = currentBlock.content;
       const isEmpty = !currentContent || (Array.isArray(currentContent) && currentContent.length === 0) ||
         (Array.isArray(currentContent) && currentContent.every((c: any) => !c.text || c.text === ''));
 
       if (item.isTable) {
-        // 테이블 블록
         const tableBlock = {
           type: 'table' as const,
           content: {
@@ -152,17 +149,15 @@ export default function BaeminEditor() {
   /* ━━━ 샘플 불러오기 ━━━ */
   const loadSample = useCallback(() => {
     try {
-      const firstBlock = editor.document[0];
-      editor.insertBlocks(SAMPLE_BLOCKS, firstBlock, 'before');
-      // 원본 빈 블록들 제거
-      const doc = editor.document;
-      const emptyBlocks = doc.filter((b: any) => {
+      const allBlocks = editor.document;
+      editor.insertBlocks(SAMPLE_BLOCKS, allBlocks[0], 'before');
+      const updatedDoc = editor.document;
+      const trailingEmpties = updatedDoc.filter((b: any, i: number) => {
+        if (i < SAMPLE_BLOCKS.length) return false;
         const cont = Array.isArray(b.content) ? b.content : [];
-        return b.type === 'paragraph' && cont.length === 0 && !SAMPLE_BLOCKS.some(s => s === b);
+        return b.type === 'paragraph' && cont.length === 0;
       });
-      if (emptyBlocks.length > 0) {
-        editor.removeBlocks(emptyBlocks);
-      }
+      if (trailingEmpties.length > 0) editor.removeBlocks(trailingEmpties);
       setTimeout(() => editor.focus(), 30);
     } catch (e) { console.error(e); }
   }, [editor]);
@@ -171,9 +166,7 @@ export default function BaeminEditor() {
   const resetEditor = useCallback(() => {
     try {
       const allBlocks = editor.document;
-      if (allBlocks.length > 1) {
-        editor.removeBlocks(allBlocks.slice(1));
-      }
+      if (allBlocks.length > 1) editor.removeBlocks(allBlocks.slice(1));
       editor.updateBlock(allBlocks[0], { type: 'paragraph', props: {}, content: [] });
       setTimeout(() => editor.focus(), 30);
     } catch (e) { console.error(e); }
@@ -182,7 +175,7 @@ export default function BaeminEditor() {
   /* ━━━ Docs 내보내기 ━━━ */
   const exportDocs = useCallback(() => {
     const html = generateMobileHTML(editor.document);
-    const blob = new Blob([`<!DOCTYPE html><html><head><meta charset="utf-8"><title>가이드</title><style>body{font-family:'Apple SD Gothic Neo',sans-serif;max-width:800px;margin:0 auto;padding:24px;}</style></head><body>${html}</body></html>`], { type: 'text/html' });
+    const blob = new Blob(['<!DOCTYPE html><html><head><meta charset="utf-8"><title>가이드</title><style>body{font-family:"Apple SD Gothic Neo",sans-serif;max-width:800px;margin:0 auto;padding:24px;}</style></head><body>' + html + '</body></html>'], { type: 'text/html' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'guide.html'; a.click();
   }, [editor]);
 
