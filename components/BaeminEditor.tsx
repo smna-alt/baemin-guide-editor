@@ -146,18 +146,20 @@ export default function BaeminEditor() {
     }
   }, [editor]);
 
-  /* ━━━ 샘플 불러오기 ━━━ */
+  /* ━━━ 샘플 불러오기 - 기존 내용 전부 교체 ━━━ */
   const loadSample = useCallback(() => {
     try {
+      // 1. 모든 기존 블록 제거 (마지막 하나 남기고)
       const allBlocks = editor.document;
-      editor.insertBlocks(SAMPLE_BLOCKS, allBlocks[0], 'before');
-      const updatedDoc = editor.document;
-      const trailingEmpties = updatedDoc.filter((b: any, i: number) => {
-        if (i < SAMPLE_BLOCKS.length) return false;
-        const cont = Array.isArray(b.content) ? b.content : [];
-        return b.type === 'paragraph' && cont.length === 0;
-      });
-      if (trailingEmpties.length > 0) editor.removeBlocks(trailingEmpties);
+      if (allBlocks.length > 1) {
+        editor.removeBlocks(allBlocks.slice(1));
+      }
+      // 2. 첫 번째 블록을 샘플 첫 번째 블록으로 교체
+      editor.updateBlock(editor.document[0], SAMPLE_BLOCKS[0]);
+      // 3. 나머지 샘플 블록 삽입
+      if (SAMPLE_BLOCKS.length > 1) {
+        editor.insertBlocks(SAMPLE_BLOCKS.slice(1), editor.document[0], 'after');
+      }
       setTimeout(() => editor.focus(), 30);
     } catch (e) { console.error(e); }
   }, [editor]);
